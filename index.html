@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Blog kezelő</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <h1>Új blog hozzáadása</h1>
+    <form id="addBlogForm">
+        <input type="text" id="author" placeholder="Szerző" required />
+        <input type="text" id="title" placeholder="Cím" required />
+        <input type="text" id="category" placeholder="Kategória" required />
+        <textarea id="content" placeholder="Tartalom" rows="5" required></textarea>
+        <button type="submit">Hozzáadás</button>
+    </form>
+
+    <div id="blogs">
+
+    </div>
+<script>
+
+const apiBase = 'http://localhost:8080'
+
+async function fetchBlogs() {
+    const res = await fetch(`${apiBase}/blogs`)
+    if (!res.ok) {
+        alert('Hiba a blogok lekérésekor')
+        return []
+    }
+    return await res.json()
+}
+
+function createBlogCard(blog) {
+    const card = document.createElement('div')
+    card.className = 'blog-card'
+    card.dataset.id = blog.id
+
+    const title = document.createElement('h3')
+    title.textContent = blog.title
+
+    const author = document.createElement('small')
+    author.textContent = `Szerző: ${blog.author} | Kategória: ${blog.category}`
+
+    const dates = document.createElement('small')
+    const createdAt = new Date(blog.createdAt).toLocaleString()
+    const updatedAt = new Date(blog.updatedAt).toLocaleString()
+    dates.textContent = `Létrehozva: ${createdAt} | Módosítva: ${updatedAt}`
+
+    const content = document.createElement('p')
+    content.textContent = blog.content
+
+    const actions = document.createElement('div')
+    actions.className = 'blog-actions'
+
+    const editBtn = document.createElement('button')
+    editBtn.textContent = 'Szerkesztés'
+    editBtn.className = 'btn btn-edit'
+    editBtn.onclick = () => showEditForm(card, blog)
+
+    const deleteBtn = document.createElement('button')
+    deleteBtn.textContent = 'Törlés'
+    deleteBtn.className = 'btn btn-delete'
+    deleteBtn.onclick = () => deleteBlog(blog.id)
+
+    actions.appendChild(editBtn)
+    actions.appendChild(deleteBtn)
+
+    card.appendChild(title)
+    card.appendChild(author)
+    card.appendChild(dates)
+    card.appendChild(content)
+    card.appendChild(actions)
+
+    return card
+}
+
+function showEditForm(card, blog) {
+    card.innerHTML = ''
+
+    const form = document.createElement('form')
+    form.className = 'edit-form'
+
+    const titleInput = document.createElement('input')
+    titleInput.type = 'text'
+    titleInput.value = blog.title
+    titleInput.required = true
+
+    const categoryInput = document.createElement('input')
+    categoryInput.type = 'text'
+    categoryInput.value = blog.category
+    categoryInput.required = true
+
+    const contentInput = document.createElement('textarea')
+    contentInput.rows = 5
+    contentInput.value = blog.content
+    contentInput.required = true
+
+    const saveBtn = document.createElement('button')
+    saveBtn.type = 'submit'
+    saveBtn.textContent = 'Mentés'
+
+    const cancelBtn = document.createElement('button')
+    cancelBtn.type = 'button'
+    cancelBtn.textContent = 'Mégse'
+    cancelBtn.className = 'cancel-btn'
+    cancelBtn.onclick = () => renderBlogs()
+
+    form.appendChild(titleInput)
+    form.appendChild(categoryInput)
+    form.appendChild(contentInput)
+    form.appendChild(saveBtn)
+    form.appendChild(cancelBtn)
+
+    form.onsubmit = async (e) => {
+        e.preventDefault()
+        const updatedBlog = {
+            title: titleInput.value.trim(),
+            category: categoryInput.value.trim(),
+            content: contentInput.value.trim()
+        }
+        if (!updatedBlog.title || !updatedBlog.category || !updatedBlog.content) {
+            alert('Kérlek tölts ki minden mezőt!')
+            return
+        }
+        try {
+            const res = await fetch(`${apiBase}/blogs/${blog.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedBlog)
+            })
+            if (!res.ok) {
+                alert('Szerkesztés sikertelen')
+                return
+            }
+            await renderBlogs()
+        } catch (err) {
+            alert('Hiba történt a szerkesztés során')
+        }
+    }
+
+    card.appendChild(form)
+}
+
+async function deleteBlog(id) {
+    if (!confirm('Biztos törlöd a blogot?')) return
+    try {
+        const res = await fetch(`${apiBase}/blogs/${id}`, { method: 'DELETE' })
+        if (!res.ok) {
+            alert('Törlés sikertelen')
+            return
+        }
+        await renderBlogs()
+    } catch (err) {
+        alert('Hiba történt a törlés során')
+    }
+}
+
+async function addBlog(event) {
+    event.preventDefault()
+    const author = document.getElementById('author').value.trim()
+    const title = document.getElementById('title').value.trim()
+    const category = document.getElementById('category').value.trim()
+    const content = document.getElementById('content').value.trim()
+
+    if (!author || !title || !category || !content) {
+        alert('Kérlek tölts ki minden mezőt!')
+        return
+    }
+
+    try {
+        const res = await fetch(`${apiBase}/blogs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ author, title, category, content })
+        })
+        if (!res.ok) {
+            alert('Blog hozzáadása sikertelen')
+            return
+        }
+        document.getElementById('addBlogForm').reset()
+        await renderBlogs()
+    } catch (err) {
+        alert('Hiba történt a blog hozzáadása során')
+    }
+}
+
+async function renderBlogs() {
+    const container = document.getElementById('blogs')
+    container.innerHTML = ''
+    const blogs = await fetchBlogs()
+    blogs.forEach(blog => {
+        const card = createBlogCard(blog)
+        container.appendChild(card)
+    })
+}
+
+document.getElementById('addBlogForm').addEventListener('submit', addBlog)
+
+renderBlogs()
+</script>
+</body>
+</html>
